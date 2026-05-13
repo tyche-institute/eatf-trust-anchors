@@ -1,8 +1,8 @@
 {
-  "version": 1,
+  "version": 2,
   "spec": "urn:eatf:spec:key-mirror:1.0",
-  "generatedAt": "2026-05-13T09:49:00.000Z",
-  "previousManifestSha256": "",
+  "generatedAt": "2026-05-13T13:00:00.000Z",
+  "previousManifestSha256": "c48709b75076a80ab90db29c9620a5baa7f9af0a111458d7dc4b9cf4f3d2542c",
   "anchors": [
     {
       "kid": "kid_demo_genesis_2026_05",
@@ -12,6 +12,15 @@
       "validFrom": "2026-05-13T00:00:00.000Z",
       "ceremonyLogPath": "ceremony-logs/2026-05-13-demo-genesis.md",
       "notes": "DEMO genesis anchor \u2014 generated 2026-05-13 to bootstrap the eatf-trust-anchors mirror. The corresponding private key is a DEMO key on the operator's dev machine, NOT in HSM, NOT to be used to sign any production .aep package or audit-log archive. The first real production ceremony will append a new anchor and retire this one (by setting retiredAt)."
+    },
+    {
+      "kid": "kid_demo_pqc_genesis_2026_05",
+      "algorithm": "ML-DSA-65",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n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\nM/hqe3849Ag=\n-----END PUBLIC KEY-----\n",
+      "fingerprintSha256": "E1:A8:88:E5:08:22:74:02:B8:72:A6:2C:B7:CE:8A:1E:65:10:97:DC:15:46:3F:AC:FF:A8:7F:7F:BE:05:5C:57",
+      "validFrom": "2026-05-13T00:00:00.000Z",
+      "ceremonyLogPath": "ceremony-logs/2026-05-13-demo-pqc-genesis.md",
+      "notes": "DEMO post-quantum (ML-DSA-65 / Dilithium3) genesis anchor. Sibling of kid_demo_genesis_2026_05 \u2014 EATF signs hybrid (RSA + ML-DSA), so the trust-anchors mirror lists both halves. Generated 2026-05-13 via the project's ai.aletheia.crypto.PqcKeyGen tool (BouncyCastle Dilithium3 implementation, NIST FIPS 204 level 3). Private key on operator dev machine, NOT in HSM. Replaced atomically by the first real production PQC ceremony."
     }
   ]
 }

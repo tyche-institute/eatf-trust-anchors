@@ -1,2 +1,4 @@
 demo-signing-key.pem
 fingerprint.txt
+ai_pqc.key
+ai_pqc_public.pem
