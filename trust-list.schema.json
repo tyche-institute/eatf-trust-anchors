@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eatf.eu/specs/trust-anchors/trust-list.schema.json",
+  "title": "EATF Trust Anchors — trust-list.json schema",
+  "description": "Schema for the canonical trust-list.json that lands in the github.com/tyche-institute/eatf-trust-anchors mirror. Phase 1 step 1.7 of the EATF roadmap. The mirror itself is principal-action (a GitHub org-level repo creation outside the autonomous-implementation surface); this schema + a seed manifest let consumers reference the format today.",
+  "type": "object",
+  "required": ["version", "spec", "generatedAt", "anchors"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "Monotonically increasing manifest version. Bumped on every key ceremony.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "spec": {
+      "description": "Stable identifier of the spec the manifest claims to conform to.",
+      "const": "urn:eatf:spec:key-mirror:1.0"
+    },
+    "generatedAt": {
+      "description": "ISO-8601 UTC timestamp of manifest generation.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "previousManifestSha256": {
+      "description": "SHA-256 of the previous trust-list.json. Empty string on the genesis manifest. Forms a hash chain so a mutation in the middle of the history is detectable by anyone walking from genesis.",
+      "type": "string",
+      "pattern": "^([0-9a-f]{64})?$"
+    },
+    "anchors": {
+      "description": "Chronological list of all EATF signing-key public anchors. Append-only — never delete an entry, only flip its `retiredAt`.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/anchor" }
+    }
+  },
+  "$defs": {
+    "anchor": {
+      "type": "object",
+      "required": ["kid", "algorithm", "publicKeyPem", "fingerprintSha256", "validFrom"],
+      "additionalProperties": false,
+      "properties": {
+        "kid": {
+          "description": "Stable identifier matching the kid stamped on attestations and ledger blocks via FileKeyProvider / Pkcs11KeyProvider.",
+          "type": "string",
+          "pattern": "^kid_[a-zA-Z0-9_-]+$",
+          "minLength": 4,
+          "maxLength": 128
+        },
+        "algorithm": {
+          "description": "Algorithm identifier. RSA-XXXX or ML-DSA-65 in v0.1.",
+          "type": "string",
+          "enum": ["RSA-2048", "RSA-4096", "ML-DSA-65"]
+        },
+        "publicKeyPem": {
+          "description": "PEM-encoded SubjectPublicKeyInfo for the public key.",
+          "type": "string",
+          "pattern": "^-----BEGIN PUBLIC KEY-----[\\s\\S]+-----END PUBLIC KEY-----\\s*$"
+        },
+        "fingerprintSha256": {
+          "description": "Uppercase colon-separated SHA-256 of the SubjectPublicKeyInfo DER bytes. Matches the format used by the verifier SDK's DIGICERT_ROOT_FINGERPRINTS table.",
+          "type": "string",
+          "pattern": "^[0-9A-F]{2}(:[0-9A-F]{2}){31}$"
+        },
+        "validFrom": {
+          "description": "ISO-8601 UTC timestamp when this anchor went into active production rotation. The first key ever used gets the EATF system epoch.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "retiredAt": {
+          "description": "ISO-8601 UTC timestamp when this anchor was retired (rotation, compromise, or wind-down). Absent for the currently-active anchor.",
+          "type": "string",
+          "format": "date-time"
+        },
+        "signedByPreviousKidBase64": {
+          "description": "Base64 RSA-4096 signature over the SHA-256 of this anchor's publicKeyPem, produced by the previous active key. Forms the chain of custody. Empty string for the genesis anchor.",
+          "type": "string"
+        },
+        "ceremonyLogPath": {
+          "description": "Relative path inside this repository to the markdown ceremony-log produced when this anchor was generated. For audit-trail traversal.",
+          "type": "string",
+          "pattern": "^ceremony-logs/[a-zA-Z0-9_.\\-/]+\\.md$"
+        },
+        "notes": {
+          "description": "Optional free-form notes (e.g. 'rotation prompted by ceremony schedule, no security incident').",
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    }
+  }
+}
