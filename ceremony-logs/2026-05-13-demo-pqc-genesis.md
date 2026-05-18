@@ -102,6 +102,7 @@ in `/tmp` on the operator machine.
 
 ---
 
-*Real production runbook: `docs/internal/key-ceremony.md` in the main
-`aletheia-ai` repository (currently focused on RSA; PQC-specific HSM
-guidance is a Phase 1.10 v1.0 task tied to vendor availability).*
+*Real production runbook: maintained internally by the operator
+(currently focused on RSA; PQC-specific HSM guidance is tied to
+vendor availability and will be added once HSM support for ML-DSA
+matures).*
