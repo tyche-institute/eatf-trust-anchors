@@ -1,0 +1,21 @@
+# Canonical author-name mapping for git log / GitHub display.
+#
+# Format: <correct-name> <correct-email> <commit-name> <commit-email>
+#
+# All work in this repository is by Anton Sokolov. The two
+# 2026-05-13 genesis-ceremony commits (21c4213 and e5de797) were
+# authored with "Anton Eremin" as the configured user.name on the
+# operator's workstation at the time; the email was correct
+# (info@h2oatlas.ee). This .mailmap normalises the display name
+# without rewriting commit history.
+#
+# Additional mappings normalise the maintainer's other commit
+# identities (sapsan14 GitHub no-reply, dev@tyche.institute org
+# identity, sokolovmeister@gmail.com personal) to the same canonical
+# name so `git shortlog -sn` and the GitHub contributors page do not
+# fragment one human into multiple entries.
+
+Anton Sokolov <info@h2oatlas.ee> Anton Eremin <info@h2oatlas.ee>
+Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <sapsan14@users.noreply.github.com>
+Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <dev@tyche.institute>
+Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <sokolovmeister@gmail.com>
