@@ -2,8 +2,8 @@
 
 **Public mirror of EATF historical signing-key trust anchors.**
 
-[![EATF](https://img.shields.io/badge/EATF-trust%20service-orange)](https://eatf.eu)
-[![Manifest spec](https://img.shields.io/badge/spec-urn%3Aeatf%3Aspec%3Akey--mirror%3A1.0-blue)](https://github.com/sapsan14/aletheia-ai/blob/main/docs/specs/trust-anchors/trust-list.schema.json)
+[![EATF](https://img.shields.io/badge/EATF-Agent%20Trust%20Framework-orange)](https://eatf.eu)
+[![Spec URN](https://img.shields.io/badge/spec-urn%3Aeatf%3Aspec%3Akey--mirror%3A1.0-blue)](#anchor-lifecycle)
 
 This repository is the canonical out-of-band publication channel for
 EATF's signing-key public material. Every key that has ever been used
@@ -19,9 +19,11 @@ Trust is anchored in this repository's commit history.
 
 ## What's here
 
-- **`trust-list.json`** — the manifest itself. Schema:
-  [`trust-list.schema.json`](https://github.com/sapsan14/aletheia-ai/blob/main/docs/specs/trust-anchors/trust-list.schema.json)
-  in the main `aletheia-ai` repository.
+- **`trust-list.json`** — the manifest itself. Profile URN
+  `urn:eatf:spec:key-mirror:1.0`; the manifest structure is described
+  inline in [Anchor lifecycle](#anchor-lifecycle) and
+  [Verifying the manifest yourself](#verifying-the-manifest-yourself)
+  below.
 - **`ceremony-logs/`** — markdown logs of every key ceremony that
   produced an anchor in the manifest. One file per ceremony, named
   `YYYY-MM-DD-<purpose>.md`.
@@ -51,7 +53,7 @@ option.
 ### Direct from this repository
 
 ```bash
-curl https://raw.githubusercontent.com/sapsan14/eatf-trust-anchors/main/trust-list.json
+curl https://raw.githubusercontent.com/tyche-institute/eatf-trust-anchors/main/trust-list.json
 ```
 
 The raw GitHub URL is the bypass path that lets you verify an AEP
@@ -67,12 +69,23 @@ The manifest is a flat JSON file. For each anchor:
 3. Format as uppercase hex with colons every 2 characters.
 4. Compare to `fingerprintSha256`. **MUST match.**
 
-The validator script in the main `aletheia-ai` repository does this:
+A minimal self-contained, algorithm-agnostic validator using `jq` +
+`base64` + `sha256sum` + standard POSIX text tools (no `openssl`, so
+it works equally for RSA, ECDSA, and ML-DSA anchors):
 
 ```bash
-git clone https://github.com/sapsan14/aletheia-ai
-cd aletheia-ai
-bash scripts/key-ceremony/validate-trust-list.sh /path/to/downloaded/trust-list.json
+jq -c '.anchors[]' trust-list.json | while read -r anchor; do
+  kid=$(echo "$anchor" | jq -r '.kid')
+  expected=$(echo "$anchor" | jq -r '.fingerprintSha256')
+  computed=$(echo "$anchor" | jq -r '.publicKeyPem' \
+    | sed -n '/-----BEGIN/,/-----END/{/-----/!p}' \
+    | tr -d ' \n' \
+    | base64 -d \
+    | sha256sum \
+    | awk '{print toupper($1)}' \
+    | sed 's/\(..\)/\1:/g; s/:$//')
+  [ "$expected" = "$computed" ] && echo "$kid  OK" || echo "$kid  MISMATCH"
+done
 ```
 
 ## Anchor lifecycle
@@ -105,7 +118,7 @@ only `retiredAt`-marked.
 
 | Version | Anchors | Status |
 |---|---|---|
-| 1 | 1 (`kid_demo_genesis_2026_05`) | **Demo / bootstrap** — replaces the seed manifest from `docs/specs/trust-anchors/trust-list.json`. The corresponding private key is a developer demo key, NOT in HSM, NOT signing prod artefacts. First real production ceremony will land as version 2. |
+| 1 | 1 (`kid_demo_genesis_2026_05`) | **Demo / bootstrap** — replaces the demo seed manifest used during initial bring-up. The corresponding private key is a developer demo key, NOT in HSM, NOT signing prod artefacts. First real production ceremony will land as version 2. |
 
 ## Reporting an anchor mismatch
 
@@ -117,26 +130,36 @@ a security incident**.
 Report via the EATF coordinated disclosure channel:
 
 - Email: `security@eatf.eu` (PGP key: `https://eatf.eu/.well-known/pgp.asc`)
-- See [`docs/legal/disclosure-policy.md`](https://github.com/sapsan14/aletheia-ai/blob/main/docs/legal/disclosure-policy.md)
-  for SLAs.
+- See [`SECURITY.md`](https://github.com/tyche-institute/eatf/blob/main/SECURITY.md)
+  in the main `eatf` repository for the coordinated-disclosure policy
+  and SLAs.
 
 ## Why a separate repository
 
-Trust services that mirror their key material on their own infrastructure
-are not trustworthy. A relying party MUST be able to verify that the
-manifest at `https://api.eatf.eu/api/public/keys/history` matches the
-manifest published at an externally-mirrored location — that's the whole
-point of out-of-band publication.
+A deployment that publishes its key material only on its own
+infrastructure forces relying parties to trust that single operator.
+A relying party should be able to verify that the manifest served by
+the deployment's backend matches the manifest published at an
+externally-mirrored location — that's the whole point of out-of-band
+publication. The reference deployment at `api.eatf.eu` exposes the
+same manifest at `/api/public/keys/history`; this repository is the
+externally-mirrored copy against which that endpoint can be checked.
 
-This repository is owned by `@sapsan14` (the EATF operator) but is
-public, MIT-licensed, and historically verifiable via GitHub's commit
-hashes. Future plans include additional mirrors at archive.org,
-Zenodo, and IPFS (see
-[`docs/specs/public-key-mirror.md`](https://github.com/sapsan14/aletheia-ai/blob/main/docs/specs/public-key-mirror.md)).
+This repository is maintained by **Tyche Institute** under the
+[`tyche-institute`](https://github.com/tyche-institute) GitHub
+organisation. It is public, MIT-licensed, and historically verifiable
+via GitHub's commit hashes. Future mirrors at archive.org, Zenodo,
+and IPFS are planned.
+
+EATF is **not** an eIDAS trust service under Regulation (EU)
+910/2014 Article 3(16); see the
+[`NOTICE`](https://github.com/tyche-institute/eatf/blob/main/NOTICE)
+in the main `eatf` repository.
 
 ---
 
-EATF is an operational trust service for AI agent attestations. See
-[eatf.eu](https://eatf.eu) for the trust service itself, or the
-[`aletheia-ai`](https://github.com/sapsan14/aletheia-ai) repository for
-source code, TSPS, and the Phase 1.7 trust-anchors specification.
+For the EATF framework itself — Agent Evidence Package (AEP) wire
+format, reference implementations in TypeScript and Python, test
+vectors, and threat model — see
+[`tyche-institute/eatf`](https://github.com/tyche-institute/eatf) and
+[eatf.eu](https://eatf.eu).

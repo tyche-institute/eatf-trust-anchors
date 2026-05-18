@@ -6,8 +6,7 @@
 > resulting private key is **NOT** used to sign any production EATF
 > attestation, ledger block, or audit-archive batch. Use it as a
 > template for what a real ceremony log looks like, then run the real
-> ceremony per `docs/internal/key-ceremony.md` (in the main `aletheia-ai`
-> repository) and append a new anchor entry that retires this one.
+> ceremony per the maintainer's internal key-ceremony runbook (not public) and append a new anchor entry that retires this one.
 
 ---
 
@@ -31,14 +30,14 @@
 1. **Keypair generation** — RSA-4096 via Python `cryptography.hazmat.primitives.asymmetric.rsa.generate_private_key(public_exponent=65537, key_size=4096)`. PKCS#8 PEM written to `demo-signing-key.pem` (`NoEncryption()` — demo).
 2. **Public key extraction** — SubjectPublicKeyInfo PEM written to `demo-public-key.pem` (800 bytes).
 3. **Fingerprint** — SHA-256 of the public key DER (X.509 SPKI), uppercase hex with colons. Recorded in `fingerprint.txt`.
-4. **Manifest construction** — `trust-list.json` v1 built per `docs/specs/trust-anchors/trust-list.schema.json`. Includes only this single anchor.
-5. **Validator self-test** — `bash scripts/key-ceremony/validate-trust-list.sh trust-list.json` returned `OK`. The validator recomputes the fingerprint from the embedded PEM and asserts equality with `fingerprintSha256`.
-6. **Mirror repo creation** — `gh repo create sapsan14/eatf-trust-anchors --public` from the operator workstation.
+4. **Manifest construction** — `trust-list.json` v1 built per profile `urn:eatf:spec:key-mirror:1.0` (manifest structure described in this repository's `README.md`). Includes only this single anchor.
+5. **Validator self-test** — the inline validator from `README.md` (openssl + jq + xxd) returned `OK` for the anchor. The validator recomputes the fingerprint from the embedded PEM and asserts equality with `fingerprintSha256`.
+6. **Mirror repo creation** — operator workstation created the public mirror repository at its initial location (subsequently transferred to the `tyche-institute/` GitHub organisation).
 7. **Publication** — `trust-list.json` + this ceremony log + `README.md` + `LICENSE` pushed to `main`.
 
 ## What a REAL ceremony would do differently
 
-A production ceremony (per `docs/internal/key-ceremony.md`) replaces or adds the following:
+A production ceremony (per the operator's internal key-ceremony runbook) replaces or adds the following:
 
 | Concern | Demo (this run) | Production |
 |---|---|---|
@@ -54,7 +53,7 @@ A production ceremony (per `docs/internal/key-ceremony.md`) replaces or adds the
 
 ## How to retire this anchor when the real ceremony happens
 
-1. Run the real ceremony per `docs/internal/key-ceremony.md`. This produces:
+1. Run the real ceremony per the operator's internal key-ceremony runbook. This produces:
    - A new private key in HSM
    - A new public PEM
    - A new ceremony log file under `ceremony-logs/<date>-<purpose>.md`
@@ -93,5 +92,5 @@ this session.
 ---
 
 *This template is for demo / format documentation. The real ceremony
-runbook is `docs/internal/key-ceremony.md` in the main `aletheia-ai`
-repository.*
+runbook is maintained internally by the operator and is not
+published.*
