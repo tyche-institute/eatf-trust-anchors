@@ -1,165 +1,211 @@
-# `eatf-trust-anchors`
+# EATF Public Key History Mirror
 
-**Public mirror of EATF historical signing-key trust anchors.**
+**Version:** 1.0-draft, dated 2026-05-12. Comment period open through 2026-08-12.
+**Stable identifier:** `urn:eatf:spec:key-mirror:1.0`
+**Phase:** 1 step 1.7 of the EATF roadmap.
+**Status:** **mirror repo live with hybrid (RSA + ML-DSA) demo bootstrap, production ceremony pending.** Phase 1.7 v0.4 + v0.5 (2026-05-13) created [`github.com/tyche-institute/eatf-trust-anchors`](https://github.com/tyche-institute/eatf-trust-anchors) and published manifest v2 with **both halves of the hybrid signing pair** EATF actually uses:
 
-[![EATF](https://img.shields.io/badge/EATF-Agent%20Trust%20Framework-orange)](https://eatf.eu)
-[![Spec URN](https://img.shields.io/badge/spec-urn%3Aeatf%3Aspec%3Akey--mirror%3A1.0-blue)](#anchor-lifecycle)
+- `kid_demo_genesis_2026_05` — **RSA-4096** classical anchor, fingerprint `62:63:3B:14:6B:BF:2A:C1:D6:87:49:CC:F5:17:A2:CC:F9:E5:66:12:55:F4:C3:59:39:A6:5E:00:65:43:8F:37`. See [`ceremony-logs/2026-05-13-demo-genesis.md`](https://github.com/tyche-institute/eatf-trust-anchors/blob/main/ceremony-logs/2026-05-13-demo-genesis.md).
+- `kid_demo_pqc_genesis_2026_05` — **ML-DSA-65** (Dilithium3) post-quantum anchor, fingerprint `E1:A8:88:E5:08:22:74:02:B8:72:A6:2C:B7:CE:8A:1E:65:10:97:DC:15:46:3F:AC:FF:A8:7F:7F:BE:05:5C:57`. See [`ceremony-logs/2026-05-13-demo-pqc-genesis.md`](https://github.com/tyche-institute/eatf-trust-anchors/blob/main/ceremony-logs/2026-05-13-demo-pqc-genesis.md).
 
-This repository is the canonical out-of-band publication channel for
-EATF's signing-key public material. Every key that has ever been used
-to sign an EATF AEP evidence package, ledger block, or audit-log
-archive lands here as an anchor entry — with the corresponding
-ceremony log, validity window, and chain-of-custody signature from
-the previous active key.
+Both private keys are **demo** keys generated on the operator workstation and **not** in HSM. The format end-to-end is now exercised: schema → seed → validator → mirror repo → backend `TrustAnchorsService` → `/api/public/keys/history` → audit-archive restore fallback — and the manifest now reflects the hybrid signature scheme EATF actually uses rather than silently downgrading to RSA-only. Manifest v2 is hash-chained from v1 via `previousManifestSha256`. Production ceremony per [`docs/internal/key-ceremony.md`](../internal/key-ceremony.md) will land as manifest v3 with `retiredAt` set on both demo anchors. Backend prod profile pulls the mirror at `https://raw.githubusercontent.com/tyche-institute/eatf-trust-anchors/main/trust-list.json` by default; override via `AI_ALETHEIA_TRUST_ANCHORS_MANIFEST_PATH` for pinned-revision deployments.
 
-It exists so a relying party verifying an EATF artefact does NOT have
-to trust the EATF backend at `api.eatf.eu` alone — the public keys live
-in a separate, externally-mirrored, audit-trail-equipped GitHub repo.
-Trust is anchored in this repository's commit history.
-
-## What's here
-
-- **`trust-list.json`** — the manifest itself. Profile URN
-  `urn:eatf:spec:key-mirror:1.0`; the manifest structure is described
-  inline in [Anchor lifecycle](#anchor-lifecycle) and
-  [Verifying the manifest yourself](#verifying-the-manifest-yourself)
-  below.
-- **`ceremony-logs/`** — markdown logs of every key ceremony that
-  produced an anchor in the manifest. One file per ceremony, named
-  `YYYY-MM-DD-<purpose>.md`.
-- **`LICENSE`** — MIT. The manifest is public trust material; nothing
-  restricts consumption.
-
-## How relying parties use this
-
-### From the EATF backend (recommended)
-
-The production backend at `api.eatf.eu` exposes the same manifest:
-
-```bash
-curl https://api.eatf.eu/api/public/keys/history
-```
-
-Look up a specific kid:
-
-```bash
-curl https://api.eatf.eu/api/public/keys/history/kid_demo_genesis_2026_05
-```
-
-The backend pulls this repository's `trust-list.json` every 6 hours and
-caches it. If the EATF backend is down, fall through to the second
-option.
-
-### Direct from this repository
-
-```bash
-curl https://raw.githubusercontent.com/tyche-institute/eatf-trust-anchors/main/trust-list.json
-```
-
-The raw GitHub URL is the bypass path that lets you verify an AEP
-package even if `api.eatf.eu` is unreachable. **This is the whole
-point** — trust does not flow through a single operator.
-
-### Verifying the manifest yourself
-
-The manifest is a flat JSON file. For each anchor:
-
-1. Take `publicKeyPem`, strip the PEM headers + whitespace, base64-decode → DER bytes.
-2. Compute SHA-256 over those DER bytes.
-3. Format as uppercase hex with colons every 2 characters.
-4. Compare to `fingerprintSha256`. **MUST match.**
-
-A minimal self-contained, algorithm-agnostic validator using `jq` +
-`base64` + `sha256sum` + standard POSIX text tools (no `openssl`, so
-it works equally for RSA, ECDSA, and ML-DSA anchors):
-
-```bash
-jq -c '.anchors[]' trust-list.json | while read -r anchor; do
-  kid=$(echo "$anchor" | jq -r '.kid')
-  expected=$(echo "$anchor" | jq -r '.fingerprintSha256')
-  computed=$(echo "$anchor" | jq -r '.publicKeyPem' \
-    | sed -n '/-----BEGIN/,/-----END/{/-----/!p}' \
-    | tr -d ' \n' \
-    | base64 -d \
-    | sha256sum \
-    | awk '{print toupper($1)}' \
-    | sed 's/\(..\)/\1:/g; s/:$//')
-  [ "$expected" = "$computed" ] && echo "$kid  OK" || echo "$kid  MISMATCH"
-done
-```
-
-## Anchor lifecycle
-
-```
-genesis  ──active──────────►  ┐
-                              │ rotation ceremony — new manifest
-                              ▼
-         (retiredAt set)      next-active ──────────►
-                                                     ┐
-                                                     │ etc.
-                                                     ▼
-```
-
-When a rotation happens, the **next** ceremony's manifest:
-
-- Increments `version` (e.g. 1 → 2)
-- Sets `previousManifestSha256` to the SHA-256 of the manifest it
-  replaces (lowercase hex)
-- Sets `retiredAt` on the OLD anchor entry
-- Appends the NEW anchor with its own `validFrom`
-- Optionally: sets `signedByPreviousKidBase64` on the new anchor — an
-  RSA signature produced by the OLD private key, over the SHA-256 of
-  the new anchor's `publicKeyPem`. This chains custody cryptographically.
-
-**Anchors are append-only.** They are never deleted from the manifest,
-only `retiredAt`-marked.
-
-## Current status
-
-| Version | Anchors | Status |
-|---|---|---|
-| 1 | 1 (`kid_demo_genesis_2026_05`) | **Demo / bootstrap** — replaces the demo seed manifest used during initial bring-up. The corresponding private key is a developer demo key, NOT in HSM, NOT signing prod artefacts. First real production ceremony will land as version 2. |
-
-## Reporting an anchor mismatch
-
-If you find an EATF artefact (`.aep`, ledger block, archive signature)
-that references a kid NOT in this manifest, or where the embedded public
-key does not match the manifest's `publicKeyPem` for that kid, **this is
-a security incident**.
-
-Report via the EATF coordinated disclosure channel:
-
-- Email: `security@eatf.eu` (PGP key: `https://eatf.eu/.well-known/pgp.asc`)
-- See [`SECURITY.md`](https://github.com/tyche-institute/eatf/blob/main/SECURITY.md)
-  in the main `eatf` repository for the coordinated-disclosure policy
-  and SLAs.
-
-## Why a separate repository
-
-A deployment that publishes its key material only on its own
-infrastructure forces relying parties to trust that single operator.
-A relying party should be able to verify that the manifest served by
-the deployment's backend matches the manifest published at an
-externally-mirrored location — that's the whole point of out-of-band
-publication. The reference deployment at `api.eatf.eu` exposes the
-same manifest at `/api/public/keys/history`; this repository is the
-externally-mirrored copy against which that endpoint can be checked.
-
-This repository is maintained by **Tyche Institute** under the
-[`tyche-institute`](https://github.com/tyche-institute) GitHub
-organisation. It is public, MIT-licensed, and historically verifiable
-via GitHub's commit hashes. Future mirrors at archive.org, Zenodo,
-and IPFS are planned.
-
-EATF is **not** an eIDAS trust service under Regulation (EU)
-910/2014 Article 3(16); see the
-[`NOTICE`](https://github.com/tyche-institute/eatf/blob/main/NOTICE)
-in the main `eatf` repository.
+> **One-sentence guarantee.** Every public key that EATF has ever used
+> to sign an `.aep` evidence package is permanently published, in a
+> tamper-evident chain, at multiple locations that the maintainer team
+> does not unilaterally control.
 
 ---
 
-For the EATF framework itself — Agent Evidence Package (AEP) wire
-format, reference implementations in TypeScript and Python, test
-vectors, and threat model — see
-[`tyche-institute/eatf`](https://github.com/tyche-institute/eatf) and
-[eatf.eu](https://eatf.eu).
+## 1. Why a mirror exists
+
+Verification of an `.aep` is offline by design — the relying party
+holds the public keys needed inside the package itself. But over a
+10-year audit horizon a verifier may also need:
+
+- To confirm that the key that signed a 2026 package was indeed the
+  active EATF key in 2026 (defends against "EATF rotated and replays
+  history" attacks).
+- To rebuild the chain of trust if a future ML-DSA scheme retires
+  ML-DSA-65 and we need to bridge.
+- To verify that a key shown in an `.aep` was not silently revoked.
+
+A single canonical location for "the EATF public-key history" answers
+all three. We put it under a separate GitHub repository owned by the
+maintainer team, plus three independent mirrors so any one going dark
+does not break the chain.
+
+## 2. Canonical location
+
+**Primary:** `https://github.com/tyche-institute/eatf-trust-anchors`
+
+A separate, intentionally tiny GitHub repository. Layout:
+
+```
+eatf-trust-anchors/
+├── README.md                 # Plain-English explainer and chain rules
+├── trust-list.json           # Machine-readable trust list (§4)
+├── genesis/                  # First-ever keys, immutable
+│   ├── kid_rsa_2026-genesis.pem
+│   ├── kid_mldsa65_2026-genesis.pem
+│   └── ceremony-log.md
+├── 2026-Q1/                  # One folder per rotation
+│   ├── kid_rsa_2026-Q1.pem
+│   ├── kid_rsa_2026-Q1.signed-by-previous     # ECDSA sig from previous active key
+│   ├── kid_mldsa65_2026-Q1.pem
+│   ├── kid_mldsa65_2026-Q1.signed-by-previous
+│   ├── ceremony-log.md
+│   └── fingerprints.txt
+├── ...
+└── revocations.json          # Append-only revocations with timestamps
+```
+
+## 3. Mirrors
+
+| Mirror | Refresh cadence | Purpose |
+|---|---|---|
+| `github.com/tyche-institute/eatf-trust-anchors` | On every rotation | Primary |
+| `web.archive.org/web/eatf-trust-anchors` | Monthly + on rotation | Drift detection |
+| IPFS (CID published in the GitHub repo) | On every rotation | Censorship resistance |
+| Zenodo DOI | Annually + on rotation | Long-term EU-funded preservation |
+
+A verifier MAY consult any one of the mirrors; if they disagree, the
+verifier MUST trust the entry that is signed by the previous active
+key and reject the one that is not (chain-of-trust rule, §4).
+
+## 4. Trust list format
+
+`trust-list.json` is the machine-readable index. v1 schema:
+
+```json
+{
+  "schema": "urn:eatf:spec:key-mirror:1.0",
+  "issuer": {
+    "name": "EATF.eu",
+    "url": "https://eatf.eu",
+    "framework_ops_version": "urn:eatf:framework-ops:1.0"
+  },
+  "generated_at": "2026-05-12T00:00:00Z",
+  "keys": [
+    {
+      "kid": "kid_rsa_2026-genesis",
+      "algorithm": "RSA-4096",
+      "valid_from": "2026-01-01T00:00:00Z",
+      "valid_until": null,
+      "active": true,
+      "fingerprint_sha256": "f3a1...",
+      "pem_path": "genesis/kid_rsa_2026-genesis.pem",
+      "signed_by_previous": null,
+      "ceremony_log": "genesis/ceremony-log.md",
+      "revoked": null
+    },
+    {
+      "kid": "kid_mldsa65_2026-genesis",
+      "algorithm": "ML-DSA-65",
+      "valid_from": "2026-01-01T00:00:00Z",
+      "valid_until": null,
+      "active": true,
+      "fingerprint_sha256": "9c2b...",
+      "pem_path": "genesis/kid_mldsa65_2026-genesis.pem",
+      "signed_by_previous": null,
+      "ceremony_log": "genesis/ceremony-log.md",
+      "revoked": null
+    }
+  ],
+  "revocations": "revocations.json"
+}
+```
+
+Rotation rules:
+
+- A new key entry is appended only after a successful ceremony
+  (Phase 1 step 1.5).
+- Each new entry MUST cite `signed_by_previous` — the path to a file
+  containing a signature, computed by the previous active key for the
+  same algorithm, over the SHA-256 fingerprint of the new key. Genesis
+  entries set this to `null`.
+- An old entry is never deleted. When a key is rotated, the old entry
+  remains `active=false` with a `valid_until` timestamp.
+- Revocations are written to a separate append-only `revocations.json`
+  AND the key's `revoked` field is updated to a non-null object with
+  `revoked_at` and `reason`. Verifiers respect a revocation only when
+  validating an `.aep` whose `metadata.created_at` is AFTER the
+  revocation timestamp — earlier packages remain trusted.
+
+## 5. Publication script
+
+`scripts/publish-key-history.sh` (Phase 1 step 1.7 deliverable) drives
+the publication. Outline (real script will be committed alongside this
+spec):
+
+```bash
+#!/usr/bin/env bash
+# Usage: publish-key-history.sh <new-kid> <pem> <previous-kid> <previous-key>
+set -euo pipefail
+
+NEW_KID="$1"
+NEW_PEM="$2"
+PREV_KID="$3"
+PREV_KEY="$4"
+
+# 1. Verify fingerprint matches the public ceremony log.
+# 2. Sign the new fingerprint with the previous key.
+# 3. Copy into the trust-anchors repo working tree.
+# 4. Regenerate trust-list.json from disk + manual valid_until updates.
+# 5. Commit, push.
+# 6. Re-publish to archive.org via SavePageNow API.
+# 7. Pin to IPFS (use a Pinata or Web3.Storage account; the API key
+#    lives in 1Password and is NOT in this repo).
+# 8. Update the Zenodo deposit (DOI-anchored) annually.
+# 9. Print SHA-256 of trust-list.json + the IPFS CID for the
+#    ceremony log.
+
+echo "Done. Verify at: https://github.com/tyche-institute/eatf-trust-anchors"
+```
+
+## 6. Verifier usage
+
+Offline verifiers use the keys embedded in the `.aep`. The mirror is
+consulted only when:
+
+- A verifier wants to confirm "this kid is the EATF key from this date"
+  beyond what is in the package.
+- A verifier wants to know if a key has been revoked.
+- A long-living verifier wants to build a complete chain over the
+  EATF lifetime.
+
+Verifiers MAY mirror the trust list locally and check for updates on
+their own schedule.
+
+## 7. Recovery scenarios
+
+| Scenario | Behaviour |
+|---|---|
+| Primary mirror taken down | Verifier consults `archive.org` snapshot. |
+| Primary mirror tampered (silent rewrite) | The new entry without a `signed_by_previous` value fails the verifier's chain check; archive.org diff also exposes the rewrite. |
+| Both primary and archive.org compromised | Verifier consults IPFS CID published in earlier announcements and Zenodo DOI. |
+| EATF disappears | See `docs/legal/termination-plan.md` § 4. The mirror remains under the maintainer team's repository for as long as GitHub honours its archive policy; archive.org + IPFS + Zenodo preserve beyond that. |
+
+## 8. Open questions
+
+- Should we operate the mirror as a separate organisation (e.g.
+  `eatf-trust` GitHub org) rather than the maintainer's personal
+  account? Yes, target Phase 2.15 when ISO 27001 work makes the
+  governance separation natural.
+- Should we adopt the IETF "Transparency Service" framework
+  (draft-ietf-cose-merkle-tree-proofs, etc.) for the trust list?
+  Tracking; not in v1 to keep the dependency surface minimal.
+
+## 9. Related documents
+
+- `docs/legal/framework-operations.md` — non-TSP description of how the reference implementation is operated.
+- `docs/legal/project-sustainability-plan.md` (replaces the earlier Termination Plan).
+- `docs/internal/key-ceremony.md` (Phase 1 step 1.5).
+- `docs/specs/aep-profile-v1.md` (Phase 1 step 1.2).
+- `scripts/publish-key-history.sh` — executable companion (planned).
+
+## 10. Changelog
+
+| Version | Date | Notes |
+|---|---|---|
+| 1.0-draft | 2026-05-12 | Initial draft. Phase 1 step 1.7. |
