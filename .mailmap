@@ -11,11 +11,10 @@
 #
 # Additional mappings normalise the maintainer's other commit
 # identities (sapsan14 GitHub no-reply, dev@tyche.institute org
-# identity, sokolovmeister@gmail.com personal) to the same canonical
-# name so `git shortlog -sn` and the GitHub contributors page do not
-# fragment one human into multiple entries.
+# identity) to the same canonical name so `git shortlog -sn` and the
+# GitHub contributors page do not fragment one human into multiple
+# entries.
 
 Anton Sokolov <info@h2oatlas.ee> Anton Eremin <info@h2oatlas.ee>
 Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <sapsan14@users.noreply.github.com>
 Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <dev@tyche.institute>
-Anton Sokolov <info@h2oatlas.ee> Anton Sokolov <sokolovmeister@gmail.com>
